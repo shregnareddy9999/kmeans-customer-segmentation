@@ -9,7 +9,10 @@ import {
   Line,
   PieChart,
   Pie,
+  ReferenceLine,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
@@ -85,6 +88,10 @@ function parseCSV(text) {
         "silhouette",
         "Silhouette Score",
         "Silhouette",
+        "PC1",
+        "PC2",
+        "PC1Variance",
+        "PC2Variance",
       ];
 
       if (numericColumns.includes(header)) {
@@ -110,14 +117,126 @@ function formatNumber(value) {
   });
 }
 
+function sampleClusterPoints(points, maxPoints = 460) {
+  if (points.length <= maxPoints) {
+    return points;
+  }
+
+  const sampled = [];
+  const step = points.length / maxPoints;
+
+  for (let index = 0; index < maxPoints; index += 1) {
+    sampled.push(points[Math.floor(index * step)]);
+  }
+
+  return sampled;
+}
+
+function ClusterMapTooltip({ active, payload, showPcaMap }) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const point = payload[0].payload;
+  const meta = SEGMENTS[point.cluster];
+
+  if (!meta) {
+    return null;
+  }
+
+  return (
+    <div className="cluster-map-tooltip">
+      <div
+        className="cluster-map-tooltip-kicker"
+        style={{ color: meta.color }}
+      >
+        {point.isCentroid ? "Cluster centroid" : "Customer"}
+      </div>
+      <strong>{meta.name}</strong>
+      {!point.isCentroid && (
+        <span>ID {point.customerId}</span>
+      )}
+      {showPcaMap ? (
+        <>
+          <span>PC1 {Number(point.x).toFixed(2)}</span>
+          <span>PC2 {Number(point.y).toFixed(2)}</span>
+        </>
+      ) : (
+        <>
+          <span>
+            Recency {Number(point.recency ?? point.x).toFixed(1)} days
+          </span>
+          <span>
+            Monetary {formatMoney(point.monetary ?? point.y)}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+function renderClusterDot(props) {
+  const { cx, cy, payload } = props;
+
+  if (
+    !Number.isFinite(cx) ||
+    !Number.isFinite(cy) ||
+    payload == null
+  ) {
+    return null;
+  }
+
+  const color = SEGMENTS[pointCluster(payload)].color;
+
+  if (payload.isCentroid) {
+    return (
+      <g>
+        <circle
+          cx={cx}
+          cy={cy}
+          r={14}
+          fill={color}
+          opacity={0.16}
+        />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={7}
+          fill={color}
+          stroke="#ffffff"
+          strokeWidth={2.4}
+        />
+      </g>
+    );
+  }
+
+  return (
+    <circle
+      cx={cx}
+      cy={cy}
+      r={3.6}
+      fill={color}
+      fillOpacity={0.82}
+      stroke="#ffffff"
+      strokeWidth={0.7}
+    />
+  );
+}
+
+function pointCluster(payload) {
+  return Number(payload.cluster);
+}
+
 function App() {
   const [customers, setCustomers] = useState([]);
   const [kResults, setKResults] = useState([]);
+  const [pcaPoints, setPcaPoints] = useState([]);
   const [page, setPage] = useState("dashboard");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedFeature, setSelectedFeature] = useState("Recency");
   const [searchId, setSearchId] = useState("");
+  const [clusterMapView, setClusterMapView] = useState("pca");
 
   useEffect(() => {
     async function loadData() {
@@ -128,6 +247,10 @@ function App() {
 
         const kResponse = await fetch(
           "/data/k_evaluation_results.csv"
+        );
+
+        const pcaResponse = await fetch(
+          "/data/customer_clusters_pca.csv"
         );
 
         if (!customerResponse.ok) {
@@ -144,6 +267,11 @@ function App() {
         if (kResponse.ok) {
           const kText = await kResponse.text();
           setKResults(parseCSV(kText));
+        }
+
+        if (pcaResponse.ok) {
+          const pcaText = await pcaResponse.text();
+          setPcaPoints(parseCSV(pcaText));
         }
 
         setLoading(false);
@@ -241,6 +369,90 @@ function App() {
       .filter((row) => Number.isFinite(row.k))
       .sort((a, b) => a.k - b.k);
   }, [kResults]);
+
+  const pcaVariance = useMemo(() => {
+    const row = pcaPoints[0];
+
+    if (!row) {
+      return { pc1: 65.8, pc2: 17.4 };
+    }
+
+    return {
+      pc1: Number(row.PC1Variance || 0) * 100,
+      pc2: Number(row.PC2Variance || 0) * 100,
+    };
+  }, [pcaPoints]);
+
+  const clusterMapSeries = useMemo(() => {
+    const buildSeries = (cluster, points) => {
+      const valid = points.filter(
+        (point) =>
+          Number.isFinite(point.x) &&
+          Number.isFinite(point.y)
+      );
+
+      const centroid =
+        valid.length > 0
+          ? {
+              x:
+                valid.reduce((sum, point) => sum + point.x, 0) /
+                valid.length,
+              y:
+                valid.reduce((sum, point) => sum + point.y, 0) /
+                valid.length,
+              cluster,
+              isCentroid: true,
+            }
+          : null;
+
+      return {
+        cluster,
+        points: sampleClusterPoints(valid),
+        centroid,
+        total: valid.length,
+      };
+    };
+
+    if (clusterMapView === "pca" && pcaPoints.length) {
+      return [0, 1, 2].map((cluster) =>
+        buildSeries(
+          cluster,
+          pcaPoints
+            .filter((row) => Number(row.Cluster) === cluster)
+            .map((row) => ({
+              x: Number(row.PC1),
+              y: Number(row.PC2),
+              cluster,
+              customerId: row.CustomerID,
+            }))
+        )
+      );
+    }
+
+    return [0, 1, 2].map((cluster) =>
+      buildSeries(
+        cluster,
+        customers
+          .filter((row) => Number(row.Cluster) === cluster)
+          .map((row) => {
+            const recency = Number(row.Recency);
+            const monetary = Number(row.Monetary);
+
+            return {
+              x: recency,
+              y: Math.log1p(Math.max(monetary, 0)),
+              recency,
+              monetary,
+              cluster,
+              customerId: row.CustomerID,
+            };
+          })
+      )
+    );
+  }, [clusterMapView, pcaPoints, customers]);
+
+  const showPcaMap =
+    clusterMapView === "pca" && pcaPoints.length > 0;
 
   if (loading) {
     return (
@@ -1272,6 +1484,236 @@ function App() {
                   </div>
                 );
               })}
+
+            </div>
+
+            <div className="panel cluster-map-panel">
+
+              <div className="panel-header">
+
+                <div>
+                  <h2>
+                    Customer Cluster Map
+                  </h2>
+
+                  <p>
+                    {showPcaMap
+                      ? `Same 2D PCA view as the analysis. The six scaled K-Means features are projected here (PC1 ${pcaVariance.pc1.toFixed(1)}%, PC2 ${pcaVariance.pc2.toFixed(1)}%).`
+                      : "Recency against log spending, colored with the final K-Means labels. Log scale keeps high-value outliers from hiding the rest of the base."}
+                  </p>
+                </div>
+
+                <div className="cluster-map-toggle">
+
+                  <button
+                    type="button"
+                    className={
+                      clusterMapView === "pca"
+                        ? "map-toggle active"
+                        : "map-toggle"
+                    }
+                    onClick={() =>
+                      setClusterMapView("pca")
+                    }
+                    disabled={!pcaPoints.length}
+                  >
+                    PCA map
+                  </button>
+
+                  <button
+                    type="button"
+                    className={
+                      clusterMapView === "rfm"
+                        ? "map-toggle active"
+                        : "map-toggle"
+                    }
+                    onClick={() =>
+                      setClusterMapView("rfm")
+                    }
+                  >
+                    Recency vs spend
+                  </button>
+
+                </div>
+
+              </div>
+
+              <div className="cluster-map-legend">
+                {[0, 1, 2].map((cluster) => (
+                  <span
+                    key={cluster}
+                    className="cluster-map-legend-item"
+                  >
+                    <span
+                      className="cluster-map-swatch"
+                      style={{
+                        background:
+                          SEGMENTS[cluster].color,
+                      }}
+                    />
+                    <span>
+                      {SEGMENTS[cluster].name}
+                      <em>
+                        {(
+                          clusterMapSeries[cluster]
+                            ?.total || 0
+                        ).toLocaleString()}{" "}
+                        customers
+                      </em>
+                    </span>
+                  </span>
+                ))}
+                <span className="cluster-map-legend-item muted">
+                  <span className="cluster-map-centroid-mark" />
+                  Centroid
+                </span>
+              </div>
+
+              <div className="cluster-map-canvas">
+
+                <ResponsiveContainer
+                  width="100%"
+                  height={460}
+                >
+                  <ScatterChart
+                    margin={{
+                      top: 18,
+                      right: 22,
+                      bottom: 28,
+                      left: 12,
+                    }}
+                  >
+
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="#e2e8f0"
+                      vertical
+                      horizontal
+                    />
+
+                    {showPcaMap && (
+                      <>
+                        <ReferenceLine
+                          x={0}
+                          stroke="#cbd5e1"
+                          strokeDasharray="4 4"
+                        />
+                        <ReferenceLine
+                          y={0}
+                          stroke="#cbd5e1"
+                          strokeDasharray="4 4"
+                        />
+                      </>
+                    )}
+
+                    <XAxis
+                      type="number"
+                      dataKey="x"
+                      name={
+                        showPcaMap
+                          ? "PC1"
+                          : "Recency"
+                      }
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{
+                        fontSize: 11,
+                        fill: "#64748b",
+                      }}
+                      tickMargin={8}
+                      label={{
+                        value: showPcaMap
+                          ? `PC1 (${pcaVariance.pc1.toFixed(1)}% variance)`
+                          : "Recency (days since last purchase)",
+                        position: "insideBottom",
+                        offset: -18,
+                        fontSize: 12,
+                        fill: "#475569",
+                      }}
+                    />
+
+                    <YAxis
+                      type="number"
+                      dataKey="y"
+                      name={
+                        showPcaMap
+                          ? "PC2"
+                          : "Monetary"
+                      }
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{
+                        fontSize: 11,
+                        fill: "#64748b",
+                      }}
+                      tickFormatter={
+                        showPcaMap
+                          ? (value) =>
+                              Number(value).toFixed(1)
+                          : (value) =>
+                              formatMoney(Math.expm1(value))
+                      }
+                      width={72}
+                      label={{
+                        value: showPcaMap
+                          ? `PC2 (${pcaVariance.pc2.toFixed(1)}% variance)`
+                          : "Monetary value",
+                        angle: -90,
+                        position: "insideLeft",
+                        offset: 4,
+                        fontSize: 12,
+                        fill: "#475569",
+                      }}
+                    />
+
+                    <Tooltip
+                      cursor={{
+                        stroke: "#94a3b8",
+                        strokeDasharray: "4 4",
+                      }}
+                      content={
+                        <ClusterMapTooltip
+                          showPcaMap={showPcaMap}
+                        />
+                      }
+                    />
+
+                    {clusterMapSeries.map((series) => (
+                      <Scatter
+                        key={`points-${series.cluster}`}
+                        name={
+                          SEGMENTS[series.cluster].name
+                        }
+                        data={series.points}
+                        fill={
+                          SEGMENTS[series.cluster].color
+                        }
+                        shape={renderClusterDot}
+                        isAnimationActive={false}
+                        legendType="none"
+                      />
+                    ))}
+
+                    {clusterMapSeries
+                      .filter((series) => series.centroid)
+                      .map((series) => (
+                        <Scatter
+                          key={`centroid-${series.cluster}`}
+                          name={`${SEGMENTS[series.cluster].short} centroid`}
+                          data={[series.centroid]}
+                          fill={
+                            SEGMENTS[series.cluster].color
+                          }
+                          shape={renderClusterDot}
+                          isAnimationActive={false}
+                          legendType="none"
+                        />
+                      ))}
+
+                  </ScatterChart>
+                </ResponsiveContainer>
+
+              </div>
 
             </div>
 

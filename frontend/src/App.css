@@ -732,6 +732,216 @@ button {
 
 
 /* ============================================================
+   CLUSTER MAP
+   ============================================================ */
+
+.cluster-map-panel {
+  overflow: hidden;
+}
+
+
+.cluster-map-toggle {
+  display: inline-flex;
+
+  padding: 4px;
+
+  background: #f1f5f9;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 10px;
+
+  flex-shrink: 0;
+}
+
+
+.map-toggle {
+  border: none;
+
+  background: transparent;
+
+  color: #64748b;
+
+  padding: 8px 12px;
+
+  border-radius: 7px;
+
+  font-size: 11px;
+
+  font-weight: 700;
+
+  line-height: 1;
+}
+
+
+.map-toggle.active {
+  background: white;
+
+  color: #0f172a;
+
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
+
+.map-toggle:disabled {
+  opacity: 0.45;
+
+  cursor: not-allowed;
+}
+
+
+.cluster-map-legend {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 10px;
+
+  margin: 4px 0 16px;
+}
+
+
+.cluster-map-legend-item {
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 8px 12px;
+
+  background: #f8fafc;
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 10px;
+
+  font-size: 11px;
+
+  font-weight: 650;
+
+  color: #334155;
+}
+
+
+.cluster-map-legend-item em {
+  display: block;
+
+  margin-top: 2px;
+
+  font-style: normal;
+
+  font-weight: 500;
+
+  color: #94a3b8;
+
+  font-size: 10px;
+}
+
+
+.cluster-map-legend-item.muted {
+  color: #64748b;
+
+  font-weight: 600;
+}
+
+
+.cluster-map-swatch {
+  width: 10px;
+  height: 10px;
+
+  border-radius: 50%;
+
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.04);
+}
+
+
+.cluster-map-centroid-mark {
+  width: 12px;
+  height: 12px;
+
+  border-radius: 50%;
+
+  background: #0f172a;
+
+  box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.12);
+}
+
+
+.cluster-map-canvas {
+  background:
+    linear-gradient(180deg, #f8fafc 0%, #ffffff 48%);
+
+  border: 1px solid #e2e8f0;
+
+  border-radius: 14px;
+
+  padding: 8px 4px 4px;
+}
+
+
+.cluster-map-tooltip {
+  min-width: 170px;
+
+  padding: 10px 12px;
+
+  background: #0f172a;
+
+  color: white;
+
+  border-radius: 10px;
+
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+}
+
+
+.cluster-map-tooltip-kicker {
+  font-size: 9px;
+
+  font-weight: 800;
+
+  letter-spacing: 0.08em;
+
+  text-transform: uppercase;
+
+  margin-bottom: 4px;
+}
+
+
+.cluster-map-tooltip strong {
+  display: block;
+
+  font-size: 13px;
+
+  margin-bottom: 6px;
+}
+
+
+.cluster-map-tooltip span {
+  display: block;
+
+  color: #cbd5e1;
+
+  font-size: 11px;
+
+  line-height: 1.55;
+}
+
+
+@media (max-width: 1100px) {
+
+  .cluster-map-toggle {
+    width: 100%;
+  }
+
+  .map-toggle {
+    flex: 1;
+  }
+
+}
+
+
+/* ============================================================
    DONUT
    ============================================================ */
 

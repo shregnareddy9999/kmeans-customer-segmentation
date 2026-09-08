@@ -60,6 +60,20 @@ PLOTS_DIR = (
     / "plots"
 )
 
+PCA_COORDINATES_PATH = (
+    PROJECT_ROOT
+    / "outputs"
+    / "customer_clusters_pca.csv"
+)
+
+FRONTEND_PCA_PATH = (
+    PROJECT_ROOT
+    / "frontend"
+    / "public"
+    / "data"
+    / "customer_clusters_pca.csv"
+)
+
 
 # ============================================================
 # CLUSTER INFORMATION
@@ -339,6 +353,31 @@ def create_pca_cluster_map(segmented_df):
     plot_df = segmented_df.copy()
     plot_df["PC1"] = components[:, 0]
     plot_df["PC2"] = components[:, 1]
+
+    pca_export = plot_df[
+        ["CustomerID", "Cluster", "PC1", "PC2"]
+    ].copy()
+
+    if "Segment" in plot_df.columns:
+        pca_export["Segment"] = plot_df["Segment"]
+
+    pca_export["PC1Variance"] = pca.explained_variance_ratio_[0]
+    pca_export["PC2Variance"] = pca.explained_variance_ratio_[1]
+
+    pca_export.to_csv(
+        PCA_COORDINATES_PATH,
+        index=False
+    )
+
+    FRONTEND_PCA_PATH.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    pca_export.to_csv(
+        FRONTEND_PCA_PATH,
+        index=False
+    )
 
     plt.figure(figsize=(10, 7))
 
