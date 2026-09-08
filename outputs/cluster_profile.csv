@@ -1,0 +1,4 @@
+Cluster,CustomerCount,CustomerPercentage,Recency,Frequency,Monetary,TotalQuantity,AverageOrderValue,UniqueProducts
+0,1221,28.15,163.83,1.39,215.0,117.24,170.62,13.71
+1,1188,27.39,25.13,10.28,5918.11,3423.36,679.84,137.67
+2,1929,44.47,88.92,2.4,826.33,488.29,412.53,44.84
