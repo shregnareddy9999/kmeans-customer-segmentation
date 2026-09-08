@@ -241,16 +241,19 @@ function App() {
   useEffect(() => {
     async function loadData() {
       try {
+        const dataFile = (name) =>
+          `${import.meta.env.BASE_URL}data/${name}`;
+
         const customerResponse = await fetch(
-          "/data/customer_segments.csv"
+          dataFile("customer_segments.csv")
         );
 
         const kResponse = await fetch(
-          "/data/k_evaluation_results.csv"
+          dataFile("k_evaluation_results.csv")
         );
 
         const pcaResponse = await fetch(
-          "/data/customer_clusters_pca.csv"
+          dataFile("customer_clusters_pca.csv")
         );
 
         if (!customerResponse.ok) {
