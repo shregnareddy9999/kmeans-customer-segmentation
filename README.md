@@ -336,3 +336,7 @@ Additional checks include inertia, cluster sizes, centroid analysis, behavioral 
 ## Future Improvements
 
 Possible extensions include customer lifetime value modeling, segment migration tracking, alternative clustering algorithms, and campaign-response measurement.
+<br>
+WEBSITE LINK:
+<br>
+https://kmeans-customer-segmentation-kohl.vercel.app/
